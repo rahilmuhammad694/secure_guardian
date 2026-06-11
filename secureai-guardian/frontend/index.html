@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureAI Guardian — Security Operations Center</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ─── Design Tokens ───────────────────────────────────────────────────── */
+    :root {
+      --bg-base:      #0a0e1a;
+      --bg-surface:   #0f1629;
+      --bg-card:      #141c2e;
+      --bg-elevated:  #1a2340;
+      --border:       #1e2d4a;
+      --border-glow:  #0d4f8c;
+
+      --cyan:         #00d4ff;
+      --cyan-dim:     #0099bb;
+      --green:        #00ff88;
+      --green-dim:    #00cc66;
+      --red:          #ff3355;
+      --orange:       #ff8c00;
+      --yellow:       #ffd700;
+      --purple:       #8b5cf6;
+
+      --text-primary: #e8f0fe;
+      --text-secondary: #8899aa;
+      --text-dim:     #445566;
+
+      --font-mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --font-ui:      'Inter', system-ui, -apple-system, sans-serif;
+
+      --radius:       8px;
+      --radius-lg:    12px;
+      --shadow:       0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ─── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Login Screen ──────────────────────────────────────────────────────── */
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-base);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .login-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 48px 40px;
+      width: 380px;
+      box-shadow: 0 0 80px rgba(0, 212, 255, 0.08), var(--shadow);
+    }
+
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .login-logo-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .login-logo h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .login-tagline {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-bottom: 32px;
+      padding-left: 56px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus { border-color: var(--cyan); }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #0066cc, var(--cyan-dim));
+      border: none;
+      border-radius: var(--radius);
+      padding: 12px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .login-hint {
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 12px;
+      margin-top: 20px;
+    }
+
+    .login-hint code {
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      background: var(--bg-elevated);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .login-error {
+      background: rgba(255, 51, 85, 0.1);
+      border: 1px solid rgba(255, 51, 85, 0.3);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      color: var(--red);
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    /* ─── App Shell ─────────────────────────────────────────────────────────── */
+    #app { display: none; min-height: 100vh; position: relative; z-index: 1; }
+
+    /* ─── Sidebar ───────────────────────────────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 220px;
+      height: 100vh;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      padding: 20px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.2px;
+    }
+
+    .sidebar-logo-sub {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .sidebar-nav { padding: 12px 8px; flex: 1; }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 8px 8px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 2px;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+    .nav-item.active {
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--cyan);
+      border-color: rgba(0, 212, 255, 0.2);
+    }
+
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--red);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 12px 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+    }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .user-name { font-size: 12px; font-weight: 600; }
+    .user-role { font-size: 10px; color: var(--cyan); font-family: var(--font-mono); }
+
+    /* ─── Main Content ───────────────────────────────────────────────────────── */
+    .main {
+      margin-left: 220px;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    /* ─── Topbar ─────────────────────────────────────────────────────────────── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.4px;
+    }
+
+    .page-subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 2px; }
+
+    .topbar-actions { display: flex; gap: 10px; align-items: center; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    .btn-accent {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: rgba(0, 212, 255, 0.4);
+      color: var(--cyan);
+    }
+    .btn-accent:hover { background: rgba(0, 212, 255, 0.25); }
+
+    .btn-danger {
+      background: rgba(255, 51, 85, 0.1);
+      border-color: rgba(255, 51, 85, 0.4);
+      color: var(--red);
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--green);
+      font-family: var(--font-mono);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── KPI Cards ─────────────────────────────────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .kpi-card:hover { border-color: var(--border-glow); transform: translateY(-2px); }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--kpi-accent, var(--cyan));
+      opacity: 0.7;
+    }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .kpi-icon {
+      font-size: 20px;
+      opacity: 0.7;
+    }
+
+    .kpi-value {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--kpi-accent, var(--text-primary));
+      font-family: var(--font-mono);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .kpi-trend {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .kpi-trend .up { color: var(--red); }
+    .kpi-trend .down { color: var(--green); }
+    .kpi-trend .neutral { color: var(--text-dim); }
+
+    /* ─── Chart Grid ─────────────────────────────────────────────────────────── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .card-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    .chart-container { position: relative; height: 200px; }
+
+    /* ─── Threat Table ───────────────────────────────────────────────────────── */
+    .table-wrapper { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(30, 45, 74, 0.5);
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover { background: var(--bg-elevated); }
+
+    td {
+      padding: 12px 12px;
+      font-size: 13px;
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    /* ─── Badges ─────────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-critical { background: rgba(255,51,85,0.15); color: var(--red); border: 1px solid rgba(255,51,85,0.3); }
+    .badge-high     { background: rgba(255,140,0,0.15); color: var(--orange); border: 1px solid rgba(255,140,0,0.3); }
+    .badge-medium   { background: rgba(255,215,0,0.15); color: var(--yellow); border: 1px solid rgba(255,215,0,0.3); }
+    .badge-low      { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+
+    .badge-open        { background: rgba(255,51,85,0.1); color: var(--red); border: 1px solid rgba(255,51,85,0.2); }
+    .badge-investigating { background: rgba(255,140,0,0.1); color: var(--orange); border: 1px solid rgba(255,140,0,0.2); }
+    .badge-mitigated   { background: rgba(139,92,246,0.1); color: var(--purple); border: 1px solid rgba(139,92,246,0.2); }
+    .badge-resolved    { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+
+    /* ─── Risk Meter ──────────────────────────────────────────────────────────── */
+    .risk-bar {
+      height: 6px;
+      background: var(--bg-elevated);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .risk-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease;
+    }
+
+    /* ─── Page sections ───────────────────────────────────────────────────────── */
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+
+    /* ─── Alerts ──────────────────────────────────────────────────────────────── */
+    .alert-banner {
+      background: rgba(255, 51, 85, 0.08);
+      border: 1px solid rgba(255, 51, 85, 0.25);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .alert-icon { font-size: 18px; }
+    .alert-dismiss { margin-left: auto; cursor: pointer; color: var(--text-secondary); }
+
+    /* ─── Loading spinner ─────────────────────────────────────────────────────── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--text-secondary);
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Agents page ─────────────────────────────────────────────────────────── */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .agent-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .agent-card:hover { border-color: var(--border-glow); }
+
+    .agent-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .agent-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .agent-name { font-size: 15px; font-weight: 700; }
+    .agent-version { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); }
+
+    .agent-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--green);
+      font-family: var(--font-mono);
+    }
+
+    .agent-caps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+    .cap-tag {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .pipeline-run-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+    }
+
+    .pipeline-stages {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 20px 0;
+    }
+
+    .pipeline-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+
+    .stage-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: var(--bg-elevated);
+      margin-bottom: 8px;
+      transition: all 0.3s;
+    }
+
+    .stage-label { font-size: 11px; color: var(--text-secondary); text-align: center; }
+
+    .stage-connector {
+      flex: 1;
+      height: 2px;
+      background: var(--border);
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    .stage-connector::after {
+      content: '▶';
+      position: absolute;
+      right: -4px;
+      top: -8px;
+      font-size: 10px;
+      color: var(--border);
+    }
+
+    .stage-active .stage-icon {
+      border-color: var(--cyan);
+      background: rgba(0, 212, 255, 0.1);
+      box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
+    }
+
+    .stage-done .stage-icon {
+      border-color: var(--green);
+      background: rgba(0, 255, 136, 0.1);
+    }
+
+    .pipeline-result {
+      margin-top: 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-glow); }
+
+    /* ─── Misc ────────────────────────────────────────────────────────────────── */
+    .mono { font-family: var(--font-mono); }
+    .text-cyan { color: var(--cyan); }
+    .text-green { color: var(--green); }
+    .text-red { color: var(--red); }
+    .text-orange { color: var(--orange); }
+    .text-dim { color: var(--text-secondary); }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🛡️</div>
+      <h1>SecureAI Guardian</h1>
+    </div>
+    <p class="login-tagline">AI-Powered Security Operations Center</p>
+
+    <div class="login-error" id="login-error">Invalid username or password.</div>
+
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="username" value="admin" placeholder="Enter username" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" value="admin123" placeholder="Enter password" />
+    </div>
+    <button class="btn-primary" onclick="handleLogin()">Sign In to SOC Platform</button>
+
+    <p class="login-hint">
+      Demo: <code>admin</code> / <code>admin123</code> &nbsp;|&nbsp; <code>analyst</code> / <code>analyst123</code>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ APP ══ -->
+<div id="app">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <div>
+        <div class="sidebar-logo-text">SecureAI</div>
+        <div class="sidebar-logo-sub">Guardian v1.0</div>
+      </div>
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-section-label">Operations</div>
+      <div class="nav-item active" onclick="navigate('dashboard')">
+        <span class="icon">📊</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="navigate('threats')">
+        <span class="icon">⚠️</span> Threats
+        <span class="nav-badge" id="open-count">0</span>
+      </div>
+      <div class="nav-item" onclick="navigate('logs')">
+        <span class="icon">📋</span> Log Manager
+      </div>
+
+      <div class="nav-section-label" style="margin-top:12px">AI Engine</div>
+      <div class="nav-item" onclick="navigate('agents')">
+        <span class="icon">🤖</span> AI Agents
+      </div>
+      <div class="nav-item" onclick="navigate('investigate')">
+        <span class="icon">🔍</span> Investigate
+      </div>
+
+      <div class="nav-section-label" style="margin-top:12px">Settings</div>
+      <div class="nav-item" onclick="navigate('api')">
+        <span class="icon">📡</span> API Console
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div>
+          <div class="user-name" id="user-name">admin</div>
+          <div class="user-role" id="user-role">admin</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ── DASHBOARD ────────────────────────────────────────────────── -->
+    <section class="page-section active" id="section-dashboard">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Security Operations Center</div>
+          <div class="page-subtitle">Real-time threat monitoring and AI-powered analysis</div>
+        </div>
+        <div class="topbar-actions">
+          <div class="system-status">
+            <div class="status-dot"></div>
+            All systems operational
+          </div>
+          <button class="btn btn-ghost" onclick="refreshDashboard()">🔄 Refresh</button>
+          <button class="btn btn-accent" onclick="runQuickAnalysis()">⚡ Quick Analyze</button>
+        </div>
+      </div>
+
+      <div id="alert-container"></div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--kpi-accent: var(--cyan)">
+          <div class="kpi-header">
+            <div class="kpi-label">Total Logs</div>
+            <div class="kpi-icon">📋</div>
+          </div>
+          <div class="kpi-value" id="kpi-logs">—</div>
+          <div class="kpi-trend"><span id="kpi-logs-24h" class="neutral">— last 24h</span></div>
+        </div>
+        <div class="kpi-card" style="--kpi-accent: var(--red)">
+          <div class="kpi-header">
+            <div class="kpi-label">Active Threats</div>
+            <div class="kpi-icon">🎯</div>
+          </div>
+          <div class="kpi-value" id="kpi-threats">—</div>
+          <div class="kpi-trend"><span id="kpi-threats-24h" class="up">— last 24h</span></div>
+        </div>
+        <div class="kpi-card" style="--kpi-accent: var(--orange)">
+          <div class="kpi-header">
+            <div class="kpi-label">Open Incidents</div>
+            <div class="kpi-icon">🔓</div>
+          </div>
+          <div class="kpi-value" id="kpi-open">—</div>
+          <div class="kpi-trend"><span id="kpi-resolved" class="down">— resolved</span></div>
+        </div>
+        <div class="kpi-card" style="--kpi-accent: var(--purple)">
+          <div class="kpi-header">
+            <div class="kpi-label">Avg Risk Score</div>
+            <div class="kpi-icon">📈</div>
+          </div>
+          <div class="kpi-value" id="kpi-risk">—</div>
+          <div class="kpi-trend"><span id="kpi-critical" class="up">— critical</span></div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1 -->
+      <div class="chart-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Threat Activity Timeline</div>
+              <div class="card-subtitle">Threats detected over the last 24 hours</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="timeline-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Severity Distribution</div>
+              <div class="card-subtitle">Breakdown by threat level</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="severity-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 2 -->
+      <div class="chart-row">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Top Threat Categories</div>
+              <div class="card-subtitle">Attack type frequency</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="category-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Incident Status</div>
+              <div class="card-subtitle">Resolution pipeline</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="status-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Threats Table -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Recent Threats</div>
+            <div class="card-subtitle">Latest detected security incidents</div>
+          </div>
+          <button class="btn btn-ghost" onclick="navigate('threats')">View All →</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Severity</th>
+                <th>Risk Score</th>
+                <th>Source IPs</th>
+                <th>Status</th>
+                <th>Detected</th>
+              </tr>
+            </thead>
+            <tbody id="recent-threats-table">
+              <tr><td colspan="6"><div class="loading"><div class="spinner"></div> Loading threats...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── THREATS ────────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-threats">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Threat Intelligence</div>
+          <div class="page-subtitle">All detected security threats</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" onclick="loadThreats()">🔄 Refresh</button>
+          <button class="btn btn-accent" onclick="runQuickAnalysis()">⚡ Detect New</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+          <select id="filter-severity" onchange="loadThreats()" style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:7px 12px; color:var(--text-primary); font-size:13px; outline:none;">
+            <option value="">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="filter-status" onchange="loadThreats()" style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:7px 12px; color:var(--text-primary); font-size:13px; outline:none;">
+            <option value="">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="investigating">Investigating</option>
+            <option value="mitigated">Mitigated</option>
+            <option value="resolved">Resolved</option>
+          </select>
+          <div id="threat-count-label" style="margin-left:auto; padding:7px 0; font-size:12px; color:var(--text-secondary);"></div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Category</th>
+                <th>Severity</th>
+                <th>Risk Score</th>
+                <th>Source IPs</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="threats-table">
+              <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── LOGS ──────────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-logs">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Log Manager</div>
+          <div class="page-subtitle">Security log ingestion and management</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" onclick="loadLogs()">🔄 Refresh</button>
+          <button class="btn btn-accent" onclick="generateSampleLogs()">⚡ Generate Samples</button>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Upload Logs (JSON)</div></div>
+          <textarea id="log-upload-text" placeholder='[{"source_ip":"10.0.0.1","event_type":"failed_login","message":"...","severity":"high"}]'
+            style="width:100%; height:120px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:10px; color:var(--text-primary); font-family:var(--font-mono); font-size:12px; outline:none; resize:vertical;"></textarea>
+          <button class="btn btn-accent" style="margin-top:10px; width:100%;" onclick="uploadLogs()">📤 Upload Logs</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Log Statistics</div></div>
+          <div id="log-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="text-align:center; padding:12px; background:var(--bg-elevated); border-radius:8px;">
+              <div style="font-size:24px; font-weight:800; color:var(--cyan); font-family:var(--font-mono);" id="stat-total-logs">—</div>
+              <div style="font-size:11px; color:var(--text-secondary);">Total Logs</div>
+            </div>
+            <div style="text-align:center; padding:12px; background:var(--bg-elevated); border-radius:8px;">
+              <div style="font-size:24px; font-weight:800; color:var(--red); font-family:var(--font-mono);" id="stat-critical-logs">—</div>
+              <div style="font-size:11px; color:var(--text-secondary);">Critical Events</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Logs</div>
+          <div id="log-count-label" style="font-size:12px; color:var(--text-secondary);"></div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Source IP</th>
+                <th>Event Type</th>
+                <th>Severity</th>
+                <th>Message</th>
+                <th>Status Code</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table">
+              <tr><td colspan="6"><div class="loading"><div class="spinner"></div> Loading logs...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── AGENTS ────────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-agents">
+      <div class="topbar">
+        <div>
+          <div class="page-title">AI Agent System</div>
+          <div class="page-subtitle">Multi-agent security analysis pipeline</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-accent" onclick="runFullPipeline()" id="run-pipeline-btn">
+            🚀 Run Full Pipeline
+          </button>
+        </div>
+      </div>
+
+      <div class="agent-grid">
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-avatar" style="background: rgba(0,212,255,0.15);">🕵️</div>
+            <div>
+              <div class="agent-name">Threat Agent</div>
+              <div class="agent-version">v1.0.0 · Pattern Matching</div>
+            </div>
+            <div class="agent-status"><div class="status-dot"></div> Active</div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.6;">
+            Analyzes security logs using 30+ detection patterns to identify brute force, SQLi, XSS, DDoS, malware, and data exfiltration threats.
+          </p>
+          <div class="agent-caps">
+            <span class="cap-tag">Brute Force</span>
+            <span class="cap-tag">SQL Injection</span>
+            <span class="cap-tag">XSS</span>
+            <span class="cap-tag">DDoS</span>
+            <span class="cap-tag">Malware</span>
+            <span class="cap-tag">Data Exfiltration</span>
+          </div>
+        </div>
+
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-avatar" style="background: rgba(255,140,0,0.15);">📊</div>
+            <div>
+              <div class="agent-name">Risk Agent</div>
+              <div class="agent-version">v1.0.0 · Weighted Scoring</div>
+            </div>
+            <div class="agent-status"><div class="status-dot"></div> Active</div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.6;">
+            Computes 0–100 risk scores using severity, category multipliers, confidence levels, spread factor, and attack velocity.
+          </p>
+          <div class="agent-caps">
+            <span class="cap-tag">Risk Score 0-100</span>
+            <span class="cap-tag">Prioritization</span>
+            <span class="cap-tag">Risk Factors</span>
+            <span class="cap-tag">Category Weights</span>
+          </div>
+        </div>
+
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-avatar" style="background: rgba(139,92,246,0.15);">🧠</div>
+            <div>
+              <div class="agent-name">LLM Investigation Agent</div>
+              <div class="agent-version">v1.0.0 · AI Analysis</div>
+            </div>
+            <div class="agent-status"><div class="status-dot"></div> Active</div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.6;">
+            Deep threat investigation using GPT-4 (or rule-based fallback). Maps to MITRE ATT&CK, identifies IOCs, and assesses blast radius.
+          </p>
+          <div class="agent-caps">
+            <span class="cap-tag">MITRE ATT&CK</span>
+            <span class="cap-tag">IOC Extraction</span>
+            <span class="cap-tag">Attack Vector</span>
+            <span class="cap-tag">Blast Radius</span>
+          </div>
+        </div>
+
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-avatar" style="background: rgba(0,255,136,0.1);">🛠️</div>
+            <div>
+              <div class="agent-name">Recommendation Agent</div>
+              <div class="agent-version">v1.0.0 · Playbook Engine</div>
+            </div>
+            <div class="agent-status"><div class="status-dot"></div> Active</div>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.6;">
+            Generates prioritized remediation playbooks with step-by-step implementation guides, effort estimates, and automation flags.
+          </p>
+          <div class="agent-caps">
+            <span class="cap-tag">7 Playbooks</span>
+            <span class="cap-tag">Priority Ranking</span>
+            <span class="cap-tag">Auto-remediation</span>
+            <span class="cap-tag">Effort Estimates</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pipeline Runner -->
+      <div class="pipeline-run-box">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🔄 Analysis Pipeline</div>
+            <div class="card-subtitle">Multi-agent orchestration: Threat → Risk → LLM → Recommendations</div>
+          </div>
+        </div>
+
+        <div class="pipeline-stages">
+          <div class="pipeline-stage" id="stage-threat">
+            <div class="stage-icon">🕵️</div>
+            <div class="stage-label">Threat<br>Detection</div>
+          </div>
+          <div class="stage-connector"></div>
+          <div class="pipeline-stage" id="stage-risk">
+            <div class="stage-icon">📊</div>
+            <div class="stage-label">Risk<br>Scoring</div>
+          </div>
+          <div class="stage-connector"></div>
+          <div class="pipeline-stage" id="stage-llm">
+            <div class="stage-icon">🧠</div>
+            <div class="stage-label">LLM<br>Investigation</div>
+          </div>
+          <div class="stage-connector"></div>
+          <div class="pipeline-stage" id="stage-rec">
+            <div class="stage-icon">🛠️</div>
+            <div class="stage-label">Recommendations</div>
+          </div>
+        </div>
+
+        <div class="pipeline-result" id="pipeline-result" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ── INVESTIGATE ────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-investigate">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Investigation Console</div>
+          <div class="page-subtitle">Deep dive threat analysis and remediation</div>
+        </div>
+      </div>
+
+      <div id="investigation-content">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <p style="font-size:14px; font-weight:600;">No investigation loaded</p>
+          <p style="font-size:13px; margin-top:8px;">Run the AI pipeline from the Agents page to generate investigations.</p>
+          <button class="btn btn-accent" style="margin-top:16px;" onclick="navigate('agents')">Go to Agents</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── API CONSOLE ────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-api">
+      <div class="topbar">
+        <div>
+          <div class="page-title">API Console</div>
+          <div class="page-subtitle">REST API documentation and testing</div>
+        </div>
+        <a href="/api/docs" target="_blank" class="btn btn-accent">📖 OpenAPI Docs</a>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:16px;">Quick API Reference</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-family:var(--font-mono); font-size:12px;">
+          <div style="background:var(--bg-elevated); padding:16px; border-radius:8px; border:1px solid var(--border);">
+            <div style="color:var(--cyan); font-weight:700; margin-bottom:8px;">Authentication</div>
+            <div style="color:var(--green);">POST</div><div style="color:var(--text-secondary);">/api/auth/login</div>
+            <div style="color:var(--green); margin-top:4px;">POST</div><div style="color:var(--text-secondary);">/api/auth/register</div>
+            <div style="color:var(--yellow); margin-top:4px;">GET</div><div style="color:var(--text-secondary);">/api/auth/me</div>
+          </div>
+          <div style="background:var(--bg-elevated); padding:16px; border-radius:8px; border:1px solid var(--border);">
+            <div style="color:var(--cyan); font-weight:700; margin-bottom:8px;">Security Logs</div>
+            <div style="color:var(--green);">POST</div><div style="color:var(--text-secondary);">/api/logs/upload</div>
+            <div style="color:var(--yellow); margin-top:4px;">GET</div><div style="color:var(--text-secondary);">/api/logs/</div>
+            <div style="color:var(--green); margin-top:4px;">POST</div><div style="color:var(--text-secondary);">/api/logs/generate/sample</div>
+          </div>
+          <div style="background:var(--bg-elevated); padding:16px; border-radius:8px; border:1px solid var(--border);">
+            <div style="color:var(--cyan); font-weight:700; margin-bottom:8px;">Threat Detection</div>
+            <div style="color:var(--green);">POST</div><div style="color:var(--text-secondary);">/api/threats/analyze</div>
+            <div style="color:var(--yellow); margin-top:4px;">GET</div><div style="color:var(--text-secondary);">/api/threats/</div>
+            <div style="color:var(--orange); margin-top:4px;">PATCH</div><div style="color:var(--text-secondary);">/api/threats/{id}/status</div>
+          </div>
+          <div style="background:var(--bg-elevated); padding:16px; border-radius:8px; border:1px solid var(--border);">
+            <div style="color:var(--cyan); font-weight:700; margin-bottom:8px;">AI Agents</div>
+            <div style="color:var(--green);">POST</div><div style="color:var(--text-secondary);">/api/agents/pipeline/run</div>
+            <div style="color:var(--green); margin-top:4px;">POST</div><div style="color:var(--text-secondary);">/api/agents/analyze/quick</div>
+            <div style="color:var(--yellow); margin-top:4px;">GET</div><div style="color:var(--text-secondary);">/api/agents/status</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">API Test Console</div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center;">
+          <select id="api-method" style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:8px 12px; color:var(--cyan); font-family:var(--font-mono); font-size:12px; font-weight:700; outline:none;">
+            <option>GET</option>
+            <option>POST</option>
+            <option>PATCH</option>
+          </select>
+          <input id="api-url" value="/api/dashboard/stats"
+            style="flex:1; background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:8px 12px; color:var(--text-primary); font-family:var(--font-mono); font-size:12px; outline:none;" />
+          <button class="btn btn-accent" onclick="testApi()">Send →</button>
+        </div>
+        <pre id="api-response" style="background:var(--bg-base); border:1px solid var(--border); border-radius:8px; padding:16px; font-family:var(--font-mono); font-size:12px; color:var(--text-secondary); min-height:100px; max-height:400px; overflow:auto; white-space:pre-wrap;">// Response will appear here</pre>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const API_BASE = '';
+let token = '';
+let currentUser = {};
+let charts = {};
+let pipelineLastResult = null;
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+async function handleLogin() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Login failed');
+
+    token = data.access_token;
+    currentUser = {username: data.username, role: data.role};
+    document.getElementById('user-name').textContent = data.username;
+    document.getElementById('user-role').textContent = data.role;
+    document.getElementById('user-avatar').textContent = data.username[0].toUpperCase();
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initDashboard();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// Allow Enter key on login
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleLogin();
+});
+
+// ─── API helper ───────────────────────────────────────────────────────────────
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({detail: res.statusText}));
+    throw new Error(err.detail || 'Request failed');
+  }
+  return res.json();
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const section = document.getElementById(`section-${page}`);
+  if (section) section.classList.add('active');
+
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(n => {
+    if (n.getAttribute('onclick')?.includes(`'${page}'`)) n.classList.add('active');
+  });
+
+  if (page === 'dashboard') initDashboard();
+  else if (page === 'threats') loadThreats();
+  else if (page === 'logs') loadLogs();
+  else if (page === 'agents') loadAgentStatus();
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function initDashboard() {
+  try {
+    const [stats, timeline] = await Promise.all([
+      api('/api/dashboard/stats'),
+      api('/api/dashboard/timeline'),
+    ]);
+    updateKPIs(stats);
+    renderTimeline(timeline.timeline);
+    renderSeverityChart(stats.severity_distribution);
+    renderCategoryChart(stats.top_threat_categories);
+    renderStatusChart(stats.status_distribution);
+    renderRecentThreats(stats.recent_threats || []);
+
+    const openCount = (stats.open_incidents || 0);
+    document.getElementById('open-count').textContent = openCount;
+
+    if ((stats.critical_threats || 0) > 0) {
+      showAlert(`⚠️ ${stats.critical_threats} CRITICAL threat(s) require immediate attention`, 'danger');
+    }
+  } catch (e) {
+    console.error('Dashboard init error:', e);
+  }
+}
+
+function refreshDashboard() { initDashboard(); }
+
+function updateKPIs(stats) {
+  document.getElementById('kpi-logs').textContent = fmtNum(stats.total_logs);
+  document.getElementById('kpi-logs-24h').textContent = `${fmtNum(stats.logs_last_24h)} last 24h`;
+  document.getElementById('kpi-threats').textContent = fmtNum(stats.total_threats);
+  document.getElementById('kpi-threats-24h').textContent = `${fmtNum(stats.threats_last_24h)} last 24h`;
+  document.getElementById('kpi-open').textContent = fmtNum(stats.open_incidents);
+  document.getElementById('kpi-resolved').textContent = `${fmtNum(stats.resolved_incidents)} resolved`;
+  document.getElementById('kpi-risk').textContent = stats.avg_risk_score || '0';
+  document.getElementById('kpi-critical').textContent = `${fmtNum(stats.critical_threats)} critical`;
+}
+
+function renderTimeline(data) {
+  const ctx = document.getElementById('timeline-chart').getContext('2d');
+  if (charts.timeline) charts.timeline.destroy();
+  charts.timeline = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.hour),
+      datasets: [
+        {
+          label: 'Total Threats',
+          data: data.map(d => d.threats),
+          borderColor: '#00d4ff',
+          backgroundColor: 'rgba(0,212,255,0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+        },
+        {
+          label: 'Critical',
+          data: data.map(d => d.critical),
+          borderColor: '#ff3355',
+          backgroundColor: 'rgba(255,51,85,0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+        },
+      ],
+    },
+    options: chartOptions(),
+  });
+}
+
+function renderSeverityChart(dist) {
+  const ctx = document.getElementById('severity-chart').getContext('2d');
+  if (charts.severity) charts.severity.destroy();
+  const labels = ['Critical', 'High', 'Medium', 'Low'];
+  const colors = ['#ff3355', '#ff8c00', '#ffd700', '#00ff88'];
+  charts.severity = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: [dist.critical||0, dist.high||0, dist.medium||0, dist.low||0],
+        backgroundColor: colors.map(c => c + '99'),
+        borderColor: colors,
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      ...chartOptions(),
+      cutout: '65%',
+      plugins: {
+        legend: {
+          display: true,
+          position: 'right',
+          labels: { color: '#8899aa', font: {size: 11}, padding: 12, boxWidth: 12 },
+        },
+      },
+    },
+  });
+}
+
+function renderCategoryChart(cats) {
+  const ctx = document.getElementById('category-chart').getContext('2d');
+  if (charts.category) charts.category.destroy();
+  charts.category = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: cats.map(c => c.category.replace('_', ' ')),
+      datasets: [{
+        data: cats.map(c => c.count),
+        backgroundColor: 'rgba(0,212,255,0.2)',
+        borderColor: '#00d4ff',
+        borderWidth: 2,
+        borderRadius: 4,
+      }],
+    },
+    options: { ...chartOptions(), indexAxis: 'y', plugins: { legend: { display: false } } },
+  });
+}
+
+function renderStatusChart(dist) {
+  const ctx = document.getElementById('status-chart').getContext('2d');
+  if (charts.status) charts.status.destroy();
+  const labels = Object.keys(dist);
+  const colors = { open: '#ff3355', investigating: '#ff8c00', mitigated: '#8b5cf6', resolved: '#00ff88', false_positive: '#445566' };
+  charts.status = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: Object.values(dist),
+        backgroundColor: labels.map(l => (colors[l] || '#445566') + '88'),
+        borderColor: labels.map(l => colors[l] || '#445566'),
+        borderWidth: 2,
+      }],
+    },
+    options: { ...chartOptions(), cutout: '65%', plugins: { legend: { display: true, position: 'right', labels: { color: '#8899aa', font: {size: 11}, padding: 12, boxWidth: 12 } } } },
+  });
+}
+
+function chartOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#141c2e',
+        borderColor: '#1e2d4a',
+        borderWidth: 1,
+        titleColor: '#e8f0fe',
+        bodyColor: '#8899aa',
+      },
+    },
+    scales: {
+      x: { grid: { color: 'rgba(30,45,74,0.5)' }, ticks: { color: '#8899aa', font: { size: 10 } } },
+      y: { grid: { color: 'rgba(30,45,74,0.5)' }, ticks: { color: '#8899aa', font: { size: 10 } } },
+    },
+  };
+}
+
+function renderRecentThreats(threats) {
+  const tbody = document.getElementById('recent-threats-table');
+  if (!threats.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div><p>No threats detected</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = threats.slice(0, 8).map(t => `
+    <tr>
+      <td><span class="mono" style="color:var(--text-secondary); font-size:11px;">${t.threat_category || '—'}</span></td>
+      <td>${severityBadge(t.severity)}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-weight:700; font-size:14px; color:${riskColor(t.risk_score)}; font-family:var(--font-mono);">${(t.risk_score||0).toFixed(0)}</div>
+          <div class="risk-bar" style="width:60px;"><div class="risk-fill" style="width:${t.risk_score||0}%; background:${riskColor(t.risk_score)};"></div></div>
+        </div>
+      </td>
+      <td><span class="mono" style="font-size:12px; color:var(--text-secondary);">${(t.source_ips||[]).slice(0,2).join(', ')}</span></td>
+      <td>${statusBadge(t.status)}</td>
+      <td style="font-size:11px; color:var(--text-dim);">${fmtDate(t.detected_at)}</td>
+    </tr>
+  `).join('');
+}
+
+// ─── Threats Page ─────────────────────────────────────────────────────────────
+async function loadThreats() {
+  const severity = document.getElementById('filter-severity')?.value || '';
+  const status = document.getElementById('filter-status')?.value || '';
+
+  let url = '/api/threats/?limit=100';
+  if (severity) url += `&severity=${severity}`;
+  if (status) url += `&status=${status}`;
+
+  const tbody = document.getElementById('threats-table');
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading threats...</div></td></tr>';
+
+  try {
+    const data = await api(url);
+    const threats = data.threats || [];
+    document.getElementById('threat-count-label').textContent = `${threats.length} threats`;
+
+    if (!threats.length) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">✅</div><p>No threats found</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = threats.map(t => `
+      <tr>
+        <td><span class="mono" style="font-size:10px; color:var(--text-dim);">${t._id?.slice(-8)||'—'}</span></td>
+        <td><span style="font-size:12px;">${(t.threat_category||'').replace('_',' ')}</span></td>
+        <td>${severityBadge(t.severity)}</td>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-weight:700; font-family:var(--font-mono); color:${riskColor(t.risk_score)};">${(t.risk_score||0).toFixed(0)}</span>
+            <div class="risk-bar" style="width:50px;"><div class="risk-fill" style="width:${t.risk_score||0}%; background:${riskColor(t.risk_score)};"></div></div>
+          </div>
+        </td>
+        <td><span class="mono" style="font-size:11px; color:var(--text-secondary);">${(t.source_ips||[]).slice(0,2).join(', ')||'—'}</span></td>
+        <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:var(--text-secondary);">${t.description||'—'}</td>
+        <td>${statusBadge(t.status)}</td>
+        <td>
+          <select onchange="updateStatus('${t._id}', this.value)" style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; padding:4px 6px; color:var(--text-primary); font-size:11px; outline:none;">
+            <option value="">Set status</option>
+            <option value="open">Open</option>
+            <option value="investigating">Investigating</option>
+            <option value="mitigated">Mitigated</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div></td></tr>`;
+  }
+}
+
+async function updateStatus(threatId, status) {
+  if (!status) return;
+  try {
+    await api(`/api/threats/${threatId}/status?status=${status}`, {method: 'PATCH'});
+    loadThreats();
+    initDashboard();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// ─── Logs Page ────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const tbody = document.getElementById('logs-table');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div> Loading logs...</div></td></tr>';
+
+  try {
+    const data = await api('/api/logs/?limit=50');
+    const logs = data.logs || [];
+    document.getElementById('log-count-label').textContent = `${data.total || logs.length} total logs`;
+    document.getElementById('stat-total-logs').textContent = fmtNum(data.total || logs.length);
+
+    const critCount = logs.filter(l => l.severity === 'critical').length;
+    document.getElementById('stat-critical-logs').textContent = fmtNum(critCount);
+
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📭</div><p>No logs found. Generate some sample logs.</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(l => `
+      <tr>
+        <td class="mono" style="font-size:11px; color:var(--text-dim);">${fmtDate(l.timestamp)}</td>
+        <td class="mono" style="font-size:12px; color:var(--cyan);">${l.source_ip||'—'}</td>
+        <td style="font-size:12px;">${l.event_type||'—'}</td>
+        <td>${severityBadge(l.severity)}</td>
+        <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:var(--text-secondary);">${l.message||'—'}</td>
+        <td class="mono" style="font-size:12px; color:${(l.status_code||0)>=400?'var(--red)':'var(--green)'};">${l.status_code||'—'}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div></td></tr>`;
+  }
+}
+
+async function generateSampleLogs() {
+  try {
+    const data = await api('/api/logs/generate/sample?count=20', {method: 'POST'});
+    showAlert(`✅ Generated ${data.generated} sample security logs`, 'success');
+    loadLogs();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function uploadLogs() {
+  const text = document.getElementById('log-upload-text').value.trim();
+  if (!text) return;
+  try {
+    const parsed = JSON.parse(text);
+    const logs = Array.isArray(parsed) ? parsed : [parsed];
+    const data = await api('/api/logs/upload', {
+      method: 'POST',
+      body: JSON.stringify({logs, source: 'manual'}),
+    });
+    showAlert(`✅ Uploaded ${data.uploaded} logs successfully`, 'success');
+    document.getElementById('log-upload-text').value = '';
+    loadLogs();
+  } catch (e) {
+    alert('Upload failed: ' + e.message);
+  }
+}
+
+// ─── Agents Page ──────────────────────────────────────────────────────────────
+async function loadAgentStatus() {
+  try {
+    await api('/api/agents/status');
+  } catch (e) {
+    console.error('Agent status error:', e);
+  }
+}
+
+async function runFullPipeline() {
+  const btn = document.getElementById('run-pipeline-btn');
+  const resultEl = document.getElementById('pipeline-result');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running pipeline...';
+  resultEl.style.display = 'block';
+  resultEl.textContent = '⏳ Initializing multi-agent pipeline...\n';
+
+  const stages = ['threat', 'risk', 'llm', 'rec'];
+  let stageIdx = 0;
+
+  const stageInterval = setInterval(() => {
+    if (stageIdx < stages.length) {
+      document.getElementById(`stage-${stages[stageIdx]}`)?.classList.add('stage-active');
+      resultEl.textContent += `  ✅ ${['Threat Detection', 'Risk Assessment', 'LLM Investigation', 'Recommendations'][stageIdx]} running...\n`;
+    }
+    stageIdx++;
+  }, 800);
+
+  try {
+    const data = await api('/api/agents/analyze/quick', {method: 'POST'});
+    clearInterval(stageInterval);
+
+    stages.forEach(s => {
+      const el = document.getElementById(`stage-${s}`);
+      if (el) { el.classList.remove('stage-active'); el.classList.add('stage-done'); }
+    });
+
+    const summary = data.result?.summary || {};
+    pipelineLastResult = data.result;
+
+    resultEl.textContent = `✅ Pipeline Complete!\n\n` +
+      `📊 Overall Status:    ${summary.overall_status || '—'}\n` +
+      `🔍 Logs Analyzed:     ${data.logs_analyzed || 0}\n` +
+      `🎯 Threats Detected:  ${summary.total_threats || 0}\n` +
+      `🔴 Critical Threats:  ${summary.critical_threats || 0}\n` +
+      `🟠 High Threats:      ${summary.high_threats || 0}\n` +
+      `📈 Avg Risk Score:    ${summary.average_risk_score || 0}\n` +
+      `💡 Recommendations:  ${summary.total_recommendations || 0}\n` +
+      `⚡ Immediate Actions: ${summary.immediate_actions_required || 0}\n` +
+      `⏱  Analysis Time:    ${(summary.analysis_duration_seconds || 0).toFixed(2)}s\n` +
+      `🧠 LLM Method:       ${summary.llm_method || 'rule_based'}\n\n` +
+      `New threats saved: ${data.new_threats_saved || 0}`;
+
+    btn.textContent = '✅ Complete — Run Again';
+    btn.disabled = false;
+
+    // Update investigation page with results
+    showInvestigationResults(data.result);
+    initDashboard();
+
+  } catch (e) {
+    clearInterval(stageInterval);
+    resultEl.textContent = `❌ Pipeline error: ${e.message}`;
+    btn.textContent = '🚀 Run Full Pipeline';
+    btn.disabled = false;
+  }
+}
+
+function showInvestigationResults(result) {
+  const el = document.getElementById('investigation-content');
+  if (!result) return;
+
+  const investigations = result.llm_investigation?.investigations || [];
+  const recommendations = result.recommendations?.recommendations || [];
+  const summary = result.llm_investigation?.overall_summary || '';
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:16px; border-color: rgba(0,212,255,0.3);">
+      <div class="card-title" style="margin-bottom:8px;">📋 Investigation Summary</div>
+      <p style="font-size:13px; color:var(--text-secondary); line-height:1.7;">${summary}</p>
+    </div>
+
+    ${investigations.length ? `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title" style="margin-bottom:16px;">🔬 Threat Investigations (${investigations.length})</div>
+      ${investigations.map(inv => `
+        <div style="background:var(--bg-elevated); border-radius:8px; padding:16px; margin-bottom:12px; border:1px solid var(--border);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <div style="font-weight:700; color:var(--cyan);">${inv.threat_id?.toUpperCase()?.replace('_',' ') || 'Unknown'}</div>
+            <span class="badge badge-${inv.urgency === 'immediate' ? 'critical' : inv.urgency === 'high' ? 'high' : 'medium'}">${inv.urgency || '—'}</span>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">${inv.analysis || '—'}</p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
+            <div><span style="color:var(--text-dim);">Attack Stage:</span> <span style="color:var(--text-primary);">${inv.attack_stage||'—'}</span></div>
+            <div><span style="color:var(--text-dim);">Blast Radius:</span> <span style="color:var(--orange);">${inv.blast_radius||'—'}</span></div>
+          </div>
+          ${inv.mitre_techniques?.length ? `<div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">${inv.mitre_techniques.map(t=>`<span class="cap-tag" style="color:var(--purple); border-color:rgba(139,92,246,0.3);">${t}</span>`).join('')}</div>` : ''}
+          ${inv.iocs?.length ? `<div style="margin-top:8px; font-size:11px; color:var(--text-dim);">IOCs: ${inv.iocs.slice(0,4).join(' | ')}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>` : ''}
+
+    ${recommendations.slice(0, 6).length ? `
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">🛠️ Remediation Recommendations</div>
+      ${recommendations.slice(0, 6).map((r, i) => `
+        <div style="background:var(--bg-elevated); border-radius:8px; padding:14px; margin-bottom:10px; border-left:3px solid ${r.priority===1?'var(--red)':r.priority===2?'var(--orange)':'var(--border)'};">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-weight:700; color:var(--text-primary);">${r.action}</span>
+            ${r.automated ? '<span class="badge badge-low">Auto</span>' : '<span class="badge" style="background:rgba(139,92,246,0.1); color:var(--purple); border:1px solid rgba(139,92,246,0.3);">Manual</span>'}
+            <span style="margin-left:auto; font-size:11px; color:var(--text-dim);">${r.estimated_effort}</span>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary);">${r.description}</p>
+          ${r.implementation_steps?.length ? `
+          <div style="margin-top:8px;">
+            ${r.implementation_steps.map((s,j) => `<div style="font-size:11px; color:var(--text-dim); padding:3px 0; padding-left:16px; position:relative;"><span style="position:absolute;left:0;color:var(--cyan);">${j+1}.</span>${s}</div>`).join('')}
+          </div>` : ''}
+        </div>
+      `).join('')}
+    </div>` : ''}
+  `;
+}
+
+// ─── Quick Analyze ────────────────────────────────────────────────────────────
+async function runQuickAnalysis() {
+  try {
+    showAlert('⚡ Running AI analysis...', 'info');
+    const data = await api('/api/agents/analyze/quick', {method: 'POST'});
+    showAlert(`✅ Analysis complete: ${data.new_threats_saved} new threats detected`, 'success');
+    initDashboard();
+  } catch (e) {
+    showAlert(`❌ Analysis failed: ${e.message}`, 'danger');
+  }
+}
+
+// ─── API Console ──────────────────────────────────────────────────────────────
+async function testApi() {
+  const method = document.getElementById('api-method').value;
+  const url = document.getElementById('api-url').value;
+  const pre = document.getElementById('api-response');
+  pre.textContent = '⏳ Sending request...';
+  try {
+    const res = await fetch(`${API_BASE}${url}`, {
+      method,
+      headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+    });
+    const data = await res.json();
+    pre.textContent = JSON.stringify(data, null, 2);
+    pre.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  } catch (e) {
+    pre.textContent = `Error: ${e.message}`;
+    pre.style.color = 'var(--red)';
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function severityBadge(severity) {
+  const s = (severity||'').toLowerCase();
+  const labels = {critical:'🔴 Critical', high:'🟠 High', medium:'🟡 Medium', low:'🟢 Low'};
+  return `<span class="badge badge-${s||'low'}">${labels[s]||s}</span>`;
+}
+
+function statusBadge(status) {
+  const s = (status||'').toLowerCase();
+  return `<span class="badge badge-${s}">${s}</span>`;
+}
+
+function riskColor(score) {
+  const s = parseFloat(score) || 0;
+  if (s >= 85) return 'var(--red)';
+  if (s >= 65) return 'var(--orange)';
+  if (s >= 40) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+function fmtNum(n) {
+  if (n == null) return '—';
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('en-US', {month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+  } catch { return iso.slice(0, 16); }
+}
+
+let alertTimeout;
+function showAlert(message, type = 'info') {
+  const container = document.getElementById('alert-container');
+  const colors = {danger: 'var(--red)', success: 'var(--green)', info: 'var(--cyan)'};
+  container.innerHTML = `
+    <div class="alert-banner" style="border-color: ${colors[type]||'var(--border)'}30; background: ${colors[type]||'var(--cyan)'}0d;">
+      <span class="alert-icon">${type==='danger'?'🚨':type==='success'?'✅':'ℹ️'}</span>
+      ${message}
+      <span class="alert-dismiss" onclick="document.getElementById('alert-container').innerHTML=''">✕</span>
+    </div>`;
+  clearTimeout(alertTimeout);
+  alertTimeout = setTimeout(() => container.innerHTML = '', 5000);
+}
+</script>
+</body>
+</html>
